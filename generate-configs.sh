@@ -72,8 +72,14 @@ generate_reality_keys() {
 
   local output private_key public_key
   output="$(xray x25519 2>&1)"
-  private_key="$(printf '%s\n' "$output" | awk -F': ' '/^Private key:/ {print $2; exit}')"
-  public_key="$(printf '%s\n' "$output" | awk -F': ' '/^Public key:/ {print $2; exit}')"
+  private_key="$(printf '%s\n' "$output" | awk -F': ' '
+    /^Private key:/ {print $2; exit}
+    /^PrivateKey:/ {print $2; exit}
+  ')"
+  public_key="$(printf '%s\n' "$output" | awk -F': ' '
+    /^Public key:/ {print $2; exit}
+    /^Password \(PublicKey\):/ {print $2; exit}
+  ')"
 
   if [ -z "$private_key" ] || [ -z "$public_key" ]; then
     echo "error: failed to parse xray x25519 output" >&2
