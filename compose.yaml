@@ -2,10 +2,9 @@ services:
   xray:
     image: ghcr.io/xtls/xray-core:26.7.28
     container_name: xray-server
-    command: ["xray", "run", "-c", "/etc/xray/config.json"]
+    command: ["run", "-c", "/etc/xray/config.json"]
     restart: unless-stopped
     ports:
       - "443:443/tcp"
     volumes:
       - ./server.json:/etc/xray/config.json:ro
-
