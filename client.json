@@ -1,0 +1,70 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "protocol": "tun",
+      "settings": {
+        "name": "xray0",
+        "mtu": 1500,
+        "gateway": [
+          "172.19.0.1/30",
+          "fd12:3456:789a::1/64"
+        ],
+        "autoSystemRoutingTable": [
+          "0.0.0.0/0",
+          "::/0"
+        ],
+        "autoOutboundsInterface": "auto"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "address": "YOUR_SERVER_DOMAIN_OR_IP",
+        "port": 443,
+        "id": "REPLACE_WITH_UUID",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "mode": "stream-one",
+          "path": "/xray"
+        },
+        "realitySettings": {
+          "fingerprint": "chrome",
+          "serverName": "speed.cloudflare.com",
+          "publicKey": "REPLACE_WITH_PUBLIC_KEY",
+          "shortId": "0123456789abcdef",
+          "spiderX": ""
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "ip": [
+          "geoip:private"
+        ],
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}
