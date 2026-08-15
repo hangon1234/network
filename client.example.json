@@ -4,6 +4,7 @@
   },
   "inbounds": [
     {
+      "port": 0,
       "protocol": "tun",
       "settings": {
         "name": "xray0",
