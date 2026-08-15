@@ -22,8 +22,8 @@ make image \
 
 Notes:
 - `kmod-tun` is required for the `tun` inbound.
-- The router config here uses `TUN` plus `autoSystemRoutingTable` and `autoOutboundsInterface` so the router can bootstrap the route automatically on Linux.
-- That `TUN` inbound is what captures traffic from the router itself and from LAN/Wi-Fi clients whose default gateway is this router.
+- The router config here uses `TUN` plus `autoSystemRoutingTable` and `autoOutboundsInterface`, and the first-boot UCI script adds an `xray0` network interface plus default routes through it.
+- That `TUN` inbound is what captures traffic from the router itself and from LAN/Wi-Fi clients whose default gateway is this router once routing is in place.
 - If your WAN interface is unusual, you may need to change the outbound interface choice from `"auto"` to an explicit interface later.
 - The Wi-Fi defaults script uses `sae-mixed`, which is WPA2/WPA3 mixed mode.
 - Use `./generate-openwrt.sh <wifi-ssid> <wifi-password> <luci-password>` from the repo root before building if you want the image to boot with your Wi-Fi name, Wi-Fi password, and LuCI root password already set.

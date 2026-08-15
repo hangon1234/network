@@ -15,7 +15,7 @@ Usage:
 
 Notes:
   - OpenWrt admin username is root in stock LuCI/OpenWrt.
-  - This script sets the root password, Wi-Fi SSID/password, and enables xray on first boot.
+  - This script sets the root password, Wi-Fi SSID/password, xray routing, and enables xray on first boot.
 EOF
 }
 

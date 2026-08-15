@@ -6,6 +6,29 @@ WIFI_SSID='REPLACE_WITH_WIFI_SSID'
 WIFI_PASSWORD='REPLACE_WITH_WIFI_PASSWORD'
 LUCI_PASSWORD='REPLACE_WITH_LUCI_PASSWORD'
 
+set_xray_routing() {
+    # Create a named network interface for the Xray TUN device and point the
+    # default IPv4/IPv6 routes at it. Xray still uses autoOutboundsInterface to
+    # keep its own upstream connection on the WAN side.
+    uci -q delete network.xray
+    uci -q set network.xray='interface'
+    uci -q set network.xray.proto='none'
+    uci -q set network.xray.device='xray0'
+
+    uci -q add network route
+    uci -q set network.@route[-1].interface='xray'
+    uci -q set network.@route[-1].target='0.0.0.0'
+    uci -q set network.@route[-1].netmask='0.0.0.0'
+    uci -q set network.@route[-1].metric='1'
+
+    uci -q add network route6
+    uci -q set network.@route6[-1].interface='xray'
+    uci -q set network.@route6[-1].target='::/0'
+    uci -q set network.@route6[-1].metric='1'
+
+    uci -q commit network
+}
+
 set_wireless_defaults() {
     local radios ifaces radio iface
 
@@ -32,6 +55,7 @@ set_root_password() {
 
 set_wireless_defaults
 set_root_password
+set_xray_routing
 
 /etc/init.d/xray enable
 /etc/init.d/xray start
