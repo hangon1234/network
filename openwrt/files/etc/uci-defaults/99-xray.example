@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+WIFI_SSID='REPLACE_WITH_WIFI_SSID'
+WIFI_PASSWORD='REPLACE_WITH_WIFI_PASSWORD'
+LUCI_PASSWORD='REPLACE_WITH_LUCI_PASSWORD'
+
+set_wireless_defaults() {
+    local radios ifaces radio iface
+
+    radios="$(uci -q show wireless | sed -n "s/^\(wireless\.[^=]*\)=wifi-device$/\1/p")"
+    ifaces="$(uci -q show wireless | sed -n "s/^\(wireless\.[^=]*\)=wifi-iface$/\1/p")"
+
+    for radio in $radios; do
+        uci -q set "${radio}.disabled=0"
+    done
+
+    for iface in $ifaces; do
+        uci -q set "${iface}.disabled=0"
+        uci -q set "${iface}.ssid=${WIFI_SSID}"
+        uci -q set "${iface}.encryption=psk2"
+        uci -q set "${iface}.key=${WIFI_PASSWORD}"
+    done
+
+    uci -q commit wireless
+}
+
+set_root_password() {
+    printf '%s\n%s\n' "$LUCI_PASSWORD" "$LUCI_PASSWORD" | passwd root >/dev/null 2>&1
+}
+
+set_wireless_defaults
+set_root_password
+
+/etc/init.d/xray enable
+/etc/init.d/xray start
+wifi reload >/dev/null 2>&1 || wifi >/dev/null 2>&1 || true
+
+exit 0

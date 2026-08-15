@@ -27,3 +27,11 @@ The script fills in:
 - `shortId`
 - client/router server address
 - optional REALITY SNI name
+
+For OpenWrt Wi-Fi and LuCI defaults, run:
+
+```sh
+./generate-openwrt.sh <wifi-ssid> <wifi-password> <luci-password>
+```
+
+That generates `openwrt/files/etc/uci-defaults/99-xray`, which applies the Wi-Fi name/password and sets the LuCI root password on first boot.
