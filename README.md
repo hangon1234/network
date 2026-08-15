@@ -64,3 +64,9 @@ For OpenWrt Wi-Fi and LuCI defaults, run:
 ```
 
 That generates `openwrt/files/etc/uci-defaults/99-xray`, which applies the Wi-Fi name/password and sets the LuCI root password on first boot.
+
+## Build OpenWrt image
+
+If you want an OpenWrt image that already includes `xray-core`, `kmod-tun`, and the repo's boot-time defaults, use the OpenWrt Image Builder and copy `openwrt/files` into it.
+
+See [openwrt/README.md](openwrt/README.md) for the exact build steps and package list.

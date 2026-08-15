@@ -5,6 +5,13 @@ This directory is meant to be copied into an OpenWrt Image Builder as `FILES=fil
 Target device:
 - `iptime_ax3000se`
 
+## How To Use
+
+1. Download the OpenWrt Image Builder for the same OpenWrt release and target as your router.
+2. Copy this directory into the Image Builder tree so it is available as `FILES=files`.
+3. Build the image with the packages you need.
+4. Flash the generated `*-sysupgrade.bin` from LuCI if the device is already running OpenWrt.
+
 Recommended packages:
 - `xray-core`
 - `kmod-tun`
@@ -19,6 +26,8 @@ make image \
   PACKAGES="xray-core kmod-tun ca-bundle wpad" \
   FILES="files"
 ```
+
+If the device is already running OpenWrt, use the generated `*-sysupgrade.bin` in LuCI's firmware upgrade page. If you are installing OpenWrt for the first time from vendor firmware, use the factory image instead.
 
 Notes:
 - `kmod-tun` is required for the `tun` inbound.
