@@ -14,6 +14,35 @@ Generate the real config files with:
 
 Run it on a machine that has `xray` in `PATH`, because the script uses `xray x25519` to create the REALITY keypair.
 
+## Install xray
+
+`generate-configs.sh` needs the `xray` binary available in `PATH`.
+
+### Linux
+
+Use the official Xray install script:
+
+```sh
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+```
+
+Verify it:
+
+```sh
+xray version
+xray x25519
+```
+
+### macOS
+
+```sh
+brew install xray
+```
+
+### OpenWrt
+
+This repo expects `xray-core` to be installed through the OpenWrt image build. See [openwrt/README.md](openwrt/README.md).
+
 That creates:
 
 - `server.json`
