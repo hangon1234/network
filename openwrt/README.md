@@ -23,9 +23,11 @@ Build example:
 ```sh
 make image \
   PROFILE="iptime_ax3000se" \
-  PACKAGES="xray-core kmod-tun ca-bundle wpad" \
+  PACKAGES="xray-core kmod-tun ca-bundle -wpad-basic-mbedtls wpad" \
   FILES="files"
 ```
+
+If your Image Builder profile pulls in a different `wpad-*` default, remove that one instead of `wpad-basic-mbedtls` before adding `wpad`.
 
 If the device is already running OpenWrt, use the generated `*-sysupgrade.bin` in LuCI's firmware upgrade page. If you are installing OpenWrt for the first time from vendor firmware, use the factory image instead.
 
