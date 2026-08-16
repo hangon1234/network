@@ -4,7 +4,7 @@ This repo keeps example templates in:
 
 - `server.example.json`
 - `client.example.json`
-- `openwrt/files/etc/xray/router.example.json`
+- `openwrt/templates/config.example.json`
 
 Generate the real config files with:
 
@@ -48,7 +48,7 @@ That creates:
 
 - `server.json`
 - `client.json`
-- `openwrt/files/etc/xray/router.json`
+- `openwrt/files/etc/xray/config.json`
 - `onexray-share.txt`
 - `onexray-share.png`
 

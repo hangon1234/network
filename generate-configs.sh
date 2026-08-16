@@ -7,11 +7,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SERVER_TEMPLATE="$ROOT_DIR/server.example.json"
 CLIENT_TEMPLATE="$ROOT_DIR/client.example.json"
-ROUTER_TEMPLATE="$ROOT_DIR/openwrt/files/etc/xray/router.example.json"
+ROUTER_TEMPLATE="$ROOT_DIR/openwrt/templates/config.example.json"
 
 SERVER_OUTPUT="$ROOT_DIR/server.json"
 CLIENT_OUTPUT="$ROOT_DIR/client.json"
-ROUTER_OUTPUT="$ROOT_DIR/openwrt/files/etc/xray/router.json"
+ROUTER_OUTPUT="$ROOT_DIR/openwrt/files/etc/xray/config.json"
 ONEXRAY_SHARE_OUTPUT="$ROOT_DIR/onexray-share.txt"
 ONEXRAY_QR_OUTPUT="$ROOT_DIR/onexray-share.png"
 
@@ -27,7 +27,7 @@ Arguments:
 This generates:
   - server.json
   - client.json
-  - openwrt/files/etc/xray/router.json
+  - openwrt/files/etc/xray/config.json
   - onexray-share.txt
   - onexray-share.png
 EOF

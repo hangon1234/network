@@ -4,7 +4,7 @@ set -e
 
 WIFI_SSID='REPLACE_WITH_WIFI_SSID'
 WIFI_PASSWORD='REPLACE_WITH_WIFI_PASSWORD'
-LUCI_PASSWORD='REPLACE_WITH_LUCI_PASSWORD'
+ROOT_PASSWORD_HASH='REPLACE_WITH_ROOT_PASSWORD_HASH'
 
 set_xray_routing() {
     # Create a named network interface for the Xray TUN device and point the
@@ -30,6 +30,8 @@ set_xray_routing() {
 }
 
 set_wireless_defaults() {
+    [ -f /etc/config/wireless ] || wifi config
+
     local radios ifaces radio iface
 
     radios="$(uci -q show wireless | sed -n "s/^\(wireless\.[^=]*\)=wifi-device$/\1/p")"
@@ -50,12 +52,19 @@ set_wireless_defaults() {
 }
 
 set_root_password() {
-    printf '%s\n%s\n' "$LUCI_PASSWORD" "$LUCI_PASSWORD" | passwd root >/dev/null 2>&1
+    if [ -n "$ROOT_PASSWORD_HASH" ] && [ -f /etc/shadow ]; then
+        sed -i "s|^root:[^:]*:|root:${ROOT_PASSWORD_HASH}:|" /etc/shadow
+    fi
 }
 
 set_wireless_defaults
 set_root_password
 set_xray_routing
+
+if [ -f /etc/config/xray ]; then
+    uci -q set xray.enabled.enabled='1' || true
+    uci -q commit xray || true
+fi
 
 /etc/init.d/xray enable
 /etc/init.d/xray start

@@ -1,6 +1,7 @@
 server.json
 client.json
-openwrt/files/etc/xray/router.json
+openwrt/files/etc/xray/config.json
+openwrt/files/etc/shadow
 openwrt/files/etc/uci-defaults/99-xray
 onexray-share.png
 onexray-share.txt
