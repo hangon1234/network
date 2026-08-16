@@ -13,6 +13,7 @@ Generate the real config files with:
 ```
 
 Run it on a machine that has `xray` in `PATH`, because the script uses `xray x25519` to create the REALITY keypair.
+It also needs `python3` with `reportlab` available to generate the OneXray QR image.
 
 ## Install xray
 
@@ -48,6 +49,8 @@ That creates:
 - `server.json`
 - `client.json`
 - `openwrt/files/etc/xray/router.json`
+- `onexray-share.txt`
+- `onexray-share.png`
 
 The script fills in:
 
@@ -56,6 +59,8 @@ The script fills in:
 - `shortId`
 - client/router server address
 - optional REALITY SNI name
+- a OneXray-compatible `vless://` share link
+- a QR code image for importing into OneXray
 
 For OpenWrt Wi-Fi and LuCI defaults, run:
 

@@ -12,6 +12,8 @@ ROUTER_TEMPLATE="$ROOT_DIR/openwrt/files/etc/xray/router.example.json"
 SERVER_OUTPUT="$ROOT_DIR/server.json"
 CLIENT_OUTPUT="$ROOT_DIR/client.json"
 ROUTER_OUTPUT="$ROOT_DIR/openwrt/files/etc/xray/router.json"
+ONEXRAY_SHARE_OUTPUT="$ROOT_DIR/onexray-share.txt"
+ONEXRAY_QR_OUTPUT="$ROOT_DIR/onexray-share.png"
 
 usage() {
   cat <<'EOF' >&2
@@ -26,6 +28,8 @@ This generates:
   - server.json
   - client.json
   - openwrt/files/etc/xray/router.json
+  - onexray-share.txt
+  - onexray-share.png
 EOF
 }
 
@@ -90,6 +94,79 @@ generate_reality_keys() {
   printf '%s\n%s\n' "$private_key" "$public_key"
 }
 
+generate_onexray_share() {
+  local server_address="$1"
+  local server_name="$2"
+  local uuid="$3"
+  local public_key="$4"
+  local short_id="$5"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "error: python3 is required to generate the OneXray QR code" >&2
+    exit 1
+  fi
+
+  if ! python3 - <<'PY' >/dev/null 2>&1
+from reportlab.graphics.barcode import qr
+from reportlab.graphics import renderPM
+PY
+  then
+    echo "error: python3 reportlab is required to generate the OneXray QR code" >&2
+    exit 1
+  fi
+
+  local share_url
+  share_url="$(
+    python3 - "$server_address" "$server_name" "$uuid" "$public_key" "$short_id" <<'PY'
+import sys
+from urllib.parse import quote
+
+server_address, server_name, uuid, public_key, short_id = sys.argv[1:]
+
+if server_address.startswith('[') and server_address.endswith(']'):
+    host = server_address
+elif ':' in server_address:
+    host = f'[{server_address}]'
+else:
+    host = server_address
+
+params = [
+    ("type", "xhttp"),
+    ("security", "reality"),
+    ("encryption", "none"),
+    ("pbk", public_key),
+    ("sid", short_id),
+    ("sni", server_name),
+    ("fp", "chrome"),
+    ("path", "/xray"),
+    ("mode", "stream-one"),
+]
+
+query = "&".join(f"{key}={quote(value, safe='')}" for key, value in params)
+print(f"vless://{uuid}@{host}:443?{query}")
+PY
+  )"
+
+  printf '%s\n' "$share_url" > "$ONEXRAY_SHARE_OUTPUT"
+
+  python3 - "$share_url" "$ONEXRAY_QR_OUTPUT" <<'PY'
+import sys
+from reportlab.graphics.barcode import qr
+from reportlab.graphics import renderPM
+from reportlab.graphics.shapes import Drawing
+
+data, output = sys.argv[1:]
+widget = qr.QrCodeWidget(data)
+bounds = widget.getBounds()
+width = bounds[2] - bounds[0]
+height = bounds[3] - bounds[1]
+size = max(width, height)
+drawing = Drawing(size, size, transform=[size / width, 0, 0, size / height, 0, 0])
+drawing.add(widget)
+renderPM.drawToFile(drawing, output, fmt='PNG')
+PY
+}
+
 render_template() {
   local template="$1"
   local output="$2"
@@ -126,12 +203,15 @@ PUBLIC_KEY="$(printf '%s\n' "$KEYS" | sed -n '2p')"
 render_template "$SERVER_TEMPLATE" "$SERVER_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
 render_template "$CLIENT_TEMPLATE" "$CLIENT_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
 render_template "$ROUTER_TEMPLATE" "$ROUTER_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
+generate_onexray_share "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PUBLIC_KEY" "$SHORT_ID"
 
 cat <<EOF
 Generated:
   - $SERVER_OUTPUT
   - $CLIENT_OUTPUT
   - $ROUTER_OUTPUT
+  - $ONEXRAY_SHARE_OUTPUT
+  - $ONEXRAY_QR_OUTPUT
 
 Values:
   - UUID: $UUID
