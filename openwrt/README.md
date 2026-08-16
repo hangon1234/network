@@ -18,18 +18,18 @@ Recommended packages:
 - `ca-bundle`
 - `luci-ssl`
 - `dropbear`
-- `wpad` for WPA2/WPA3 mixed mode and AP support
+- `wpad-openssl` (or full `wpad`) for WPA2/WPA3 (SAE) mixed mode support
 
 Build example:
 
 ```sh
 make image \
   PROFILE="iptime_ax3000se" \
-  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle luci-ssl dropbear -wpad-basic-mbedtls wpad" \
+  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle luci-ssl dropbear -wpad-basic-mbedtls -wpad-mini wpad-openssl" \
   FILES="files"
 ```
 
-If your Image Builder profile pulls in a different `wpad-*` default, remove that one instead of `wpad-basic-mbedtls` before adding `wpad`.
+If your Image Builder profile pulls in a different `wpad-*` default, remove that one before adding `wpad-openssl` (or `wpad`). Note that `wpad-mini` and `wpad-basic-mbedtls` do not support WPA3 SAE and will cause hostapd to fail to start in `sae-mixed` mode.
 
 If the device is already running OpenWrt, use the generated `*-sysupgrade.bin` in LuCI's firmware upgrade page. If you are installing OpenWrt for the first time from vendor firmware, use the factory image instead.
 

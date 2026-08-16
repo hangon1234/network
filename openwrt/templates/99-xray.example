@@ -46,6 +46,7 @@ set_wireless_defaults() {
         uci -q set "${iface}.ssid=${WIFI_SSID}"
         uci -q set "${iface}.encryption=sae-mixed"
         uci -q set "${iface}.key=${WIFI_PASSWORD}"
+        uci -q set "${iface}.ieee80211w=1"
     done
 
     uci -q commit wireless
