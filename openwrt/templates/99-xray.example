@@ -7,6 +7,10 @@ WIFI_PASSWORD='REPLACE_WITH_WIFI_PASSWORD'
 ROOT_PASSWORD_HASH='REPLACE_WITH_ROOT_PASSWORD_HASH'
 
 set_xray_routing() {
+    # Set WAN metrics to 10 so that xray default route (metric 1) takes precedence
+    uci -q set network.wan.metric='10' || true
+    uci -q set network.wan6.metric='10' || true
+
     # Create a named network interface for the Xray TUN device and point the
     # default IPv4/IPv6 routes at it. Xray still uses autoOutboundsInterface to
     # keep its own upstream connection on the WAN side.
@@ -29,6 +33,16 @@ set_xray_routing() {
     uci -q commit network
 }
 
+set_xray_firewall() {
+    # Include xray in firewall wan zone to allow LAN/Wi-Fi forwarding and NAT/masquerade
+    local wan_zone
+    wan_zone="$(uci -q show firewall | grep "name='wan'" | head -n1 | cut -d. -f1,2)"
+    if [ -n "$wan_zone" ]; then
+        uci -q add_list "${wan_zone}.network=xray"
+        uci -q commit firewall
+    fi
+}
+
 set_wireless_defaults() {
     [ -f /etc/config/wireless ] || wifi config
 
@@ -39,6 +53,7 @@ set_wireless_defaults() {
 
     for radio in $radios; do
         uci -q set "${radio}.disabled=0"
+        uci -q set "${radio}.country=KR"
     done
 
     for iface in $ifaces; do
@@ -61,6 +76,7 @@ set_root_password() {
 set_wireless_defaults
 set_root_password
 set_xray_routing
+set_xray_firewall
 
 if [ -f /etc/config/xray ]; then
     uci -q set xray.enabled.enabled='1' || true

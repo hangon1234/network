@@ -16,6 +16,7 @@ Recommended packages:
 - `xray-core`
 - `kmod-tun`
 - `ca-bundle`
+- `curl`
 - `luci-ssl`
 - `dropbear`
 - `wpad-openssl` (or full `wpad`) for WPA2/WPA3 (SAE) mixed mode support
@@ -25,7 +26,7 @@ Build example:
 ```sh
 make image \
   PROFILE="iptime_ax3000se" \
-  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle luci-ssl dropbear -wpad-basic-mbedtls -wpad-mini wpad-openssl" \
+  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle curl luci-ssl dropbear -wpad-basic-mbedtls -wpad-mini wpad-openssl" \
   FILES="files"
 ```
 
