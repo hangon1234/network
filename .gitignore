@@ -1,4 +1,4 @@
-/server.json
-/client.json
-/openwrt/files/etc/xray/router.json
-/openwrt/files/etc/uci-defaults/99-xray
+server.json
+client.json
+openwrt/files/etc/xray/router.json
+openwrt/files/etc/uci-defaults/99-xray
