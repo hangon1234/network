@@ -10,7 +10,7 @@ set_xray_routing() {
     # Create a named network interface for the Xray TUN device and point the
     # default IPv4/IPv6 routes at it. Xray still uses autoOutboundsInterface to
     # keep its own upstream connection on the WAN side.
-    uci -q delete network.xray
+    uci -q delete network.xray || true
     uci -q set network.xray='interface'
     uci -q set network.xray.proto='none'
     uci -q set network.xray.device='xray0'

@@ -25,7 +25,7 @@ Build example:
 ```sh
 make image \
   PROFILE="iptime_ax3000se" \
-  PACKAGES="xray-core kmod-tun ca-bundle luci-ssl dropbear -wpad-basic-mbedtls wpad" \
+  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle luci-ssl dropbear -wpad-basic-mbedtls wpad" \
   FILES="files"
 ```
 
