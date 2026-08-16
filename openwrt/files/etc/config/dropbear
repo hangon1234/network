@@ -1,0 +1,7 @@
+config dropbear
+	option enable '1'
+	option PasswordAuth 'on'
+	option RootLogin 'on'
+	option RootPasswordAuth 'on'
+	option Port '22'
+	option Interface 'lan'

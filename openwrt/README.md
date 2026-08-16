@@ -16,6 +16,8 @@ Recommended packages:
 - `xray-core`
 - `kmod-tun`
 - `ca-bundle`
+- `luci-ssl`
+- `dropbear`
 - `wpad` for WPA2/WPA3 mixed mode and AP support
 
 Build example:
@@ -23,7 +25,7 @@ Build example:
 ```sh
 make image \
   PROFILE="iptime_ax3000se" \
-  PACKAGES="xray-core kmod-tun ca-bundle -wpad-basic-mbedtls wpad" \
+  PACKAGES="xray-core kmod-tun ca-bundle luci-ssl dropbear -wpad-basic-mbedtls wpad" \
   FILES="files"
 ```
 
@@ -37,5 +39,6 @@ Notes:
 - That `TUN` inbound is what captures traffic from the router itself and from LAN/Wi-Fi clients whose default gateway is this router once routing is in place.
 - If your WAN interface is unusual, you may need to change the outbound interface choice from `"auto"` to an explicit interface later.
 - The Wi-Fi defaults script uses `sae-mixed`, which is WPA2/WPA3 mixed mode.
+- `luci-ssl` gives you the LuCI web UI over HTTPS, and the overlayed `dropbear` config keeps SSH enabled on LAN port 22.
 - Use `./generate-openwrt.sh <wifi-ssid> <wifi-password> <luci-password>` from the repo root before building if you want the image to boot with your Wi-Fi name, Wi-Fi password, and LuCI root password already set.
 - Stock OpenWrt uses `root` as the LuCI username. This repo sets the password automatically; changing the username is a different auth customization.
