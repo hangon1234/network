@@ -44,10 +44,10 @@ Subcommands:
             configs. Run this once per router with that router's own SSID / passwords.
             server.json is never modified.
 
-            Arguments:
-              wifi-ssid      Wi-Fi SSID to set on the OpenWrt router.
-              wifi-password  Wi-Fi password to set on the OpenWrt router.
-              luci-password  LuCI/SSH root password for the OpenWrt router.
+            Arguments (all optional — random values are generated if omitted):
+              wifi-ssid      Wi-Fi SSID.      Default: OpenWrt_<5 random hex chars>
+              wifi-password  Wi-Fi password.  Default: 10 random hex chars
+              luci-password  LuCI/SSH root password. Default: 10 random hex chars
 
             Generates:
               - openwrt/files/etc/xray/config.json
@@ -205,6 +205,25 @@ drawing = Drawing(size, size, transform=[size / width, 0, 0, size / height, 0, 0
 drawing.add(widget)
 renderPM.drawToFile(drawing, output, fmt='PNG')
 PY
+}
+
+generate_random_hex() {
+  local length="$1"   # number of hex characters (bytes = length/2, rounded up)
+  local bytes=$(( (length + 1) / 2 ))
+
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex "$bytes" | cut -c1-"$length"
+    return
+  fi
+
+  if [ -r /dev/urandom ]; then
+    od -An -N"$bytes" -tx1 /dev/urandom | tr -d ' \n' | cut -c1-"$length"
+    printf '\n'
+    return
+  fi
+
+  echo "error: unable to generate random hex; install openssl or expose /dev/urandom" >&2
+  exit 1
 }
 
 render_template() {
@@ -380,14 +399,14 @@ EOF
 # Subcommand: router
 # ---------------------------------------------------------------------------
 cmd_router() {
-  if [ $# -ne 3 ]; then
-    echo "Usage: ./generate-configs.sh router <wifi-ssid> <wifi-password> <luci-password>" >&2
+  if [ $# -gt 3 ]; then
+    echo "Usage: ./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password]" >&2
     exit 1
   fi
 
-  local wifi_ssid="$1"
-  local wifi_password="$2"
-  local luci_password="$3"
+  local wifi_ssid="${1:-OpenWrt_$(generate_random_hex 5)}"
+  local wifi_password="${2:-$(generate_random_hex 10)}"
+  local luci_password="${3:-$(generate_random_hex 10)}"
 
   # Read credentials from the already-generated server.json.
   local parsed uuid private_key short_id server_name
@@ -425,7 +444,10 @@ Values read from $SERVER_OUTPUT:
   - UUID:           $uuid
   - shortId:        $short_id
 
-Router SSID: $wifi_ssid
+Router credentials:
+  - SSID:           $wifi_ssid
+  - Wi-Fi password: $wifi_password
+  - LuCI password:  $luci_password
 EOF
 }
 

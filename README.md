@@ -6,35 +6,24 @@ This repo keeps example templates in:
 - `client.example.json`
 - `openwrt/templates/config.example.json`
 
-Generate the real config files with:
+Config generation is split into two subcommands so that server credentials are
+generated once and remain stable across multiple router flashes.
 
-```sh
-./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]
-```
+## Prerequisites
 
-Run it on a machine that has `xray` in `PATH`, because the script uses `xray x25519` to create the REALITY keypair.
-It also needs `python3` with `reportlab` available to generate the OneXray QR image.
+Both subcommands require `xray` in `PATH` (uses `xray x25519` for REALITY keys).
+The `server` subcommand also requires `python3` with `reportlab` to generate the
+OneXray QR image.
 
-## Install xray
-
-`generate-configs.sh` needs the `xray` binary available in `PATH`.
-
-### Linux
-
-Use the official Xray install script:
+### Install xray — Linux
 
 ```sh
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
-```
-
-Verify it:
-
-```sh
 xray version
-xray x25519
+xray x25519   # smoke-test
 ```
 
-### macOS
+### Install xray — macOS
 
 ```sh
 brew install xray
@@ -42,36 +31,79 @@ brew install xray
 
 ### OpenWrt
 
-This repo expects `xray-core` to be installed through the OpenWrt image build. See [openwrt/README.md](openwrt/README.md).
+`xray-core` is installed through the OpenWrt image build — see
+[openwrt/README.md](openwrt/README.md).
 
-That creates:
+---
 
-- `server.json`
-- `client.json`
-- `openwrt/files/etc/xray/config.json`
-- `onexray-share.txt`
-- `onexray-share.png`
-
-The script fills in:
-
-- `UUID`
-- REALITY `privateKey` / `publicKey`
-- `shortId`
-- client/router server address
-- optional REALITY SNI name
-- a OneXray-compatible `vless://` share link
-- a QR code image for importing into OneXray
-
-For OpenWrt Wi-Fi and LuCI defaults, these are now generated as part of the main script:
+## Step 1 — Generate server config (run once)
 
 ```sh
-./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]
+./generate-configs.sh server <server-address-or-domain> [server-name]
 ```
 
-That generates `openwrt/files/etc/uci-defaults/99-xray` and `openwrt/files/etc/shadow`, which apply the Wi-Fi name/password and set the LuCI root password on first boot.
+| Argument | Description |
+|---|---|
+| `server-address-or-domain` | Public IP or domain of the Xray server |
+| `server-name` | REALITY SNI / camouflage hostname. Defaults to `speed.cloudflare.com` |
+
+This generates a fresh UUID, REALITY key pair, and shortId, then writes:
+
+- `server.json` — Xray inbound config for the server
+- `client.json` — Xray outbound config for desktop/mobile clients
+- `onexray-share.txt` — OneXray-compatible `vless://` share link
+- `onexray-share.png` — QR code for importing into OneXray
+
+> **Re-run `server` only when you want to rotate all credentials.**
+> It will overwrite `server.json` and invalidate any previously flashed routers.
+
+---
+
+## Step 2 — Generate router config (run once per router)
+
+```sh
+./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password]
+```
+
+All arguments are **optional**. If omitted, random values are generated automatically:
+
+| Argument | Default |
+|---|---|
+| `wifi-ssid` | `OpenWrt_<5 random hex chars>` e.g. `OpenWrt_a3f2c` |
+| `wifi-password` | 10 random hex chars |
+| `luci-password` | 10 random hex chars |
+
+The script reads all Xray credentials (UUID, keys, shortId, server address)
+from the existing `server.json` and `client.json` — **no new keys are generated**
+and `server.json` is never modified.
+
+Outputs:
+
+- `openwrt/files/etc/xray/config.json` — Xray client config for the router
+- `openwrt/files/etc/uci-defaults/99-xray` — UCI defaults script (applied on first boot)
+- `openwrt/files/etc/shadow` — pre-hashed root password
+
+### Multi-router workflow
+
+```sh
+# 1. Generate server credentials once
+./generate-configs.sh server my.server.com
+
+# 2. Flash router A
+./generate-configs.sh router HomeNetwork_A wifi_pass_A luci_pass_A
+#    → build OpenWrt image, flash router A
+
+# 3. Flash router B  (server.json is untouched)
+./generate-configs.sh router OfficeNetwork_B wifi_pass_B luci_pass_B
+#    → build OpenWrt image, flash router B
+```
+
+---
 
 ## Build OpenWrt image
 
-If you want an OpenWrt image that already includes `xray-core`, `kmod-tun`, LuCI, SSH, and the repo's boot-time defaults, use the OpenWrt Image Builder and copy `openwrt/files` into it.
+After running the `router` subcommand, use the OpenWrt Image Builder and copy
+`openwrt/files` into it to produce a flashable image that already includes
+`xray-core`, `kmod-tun`, LuCI, SSH, and the boot-time defaults.
 
 See [openwrt/README.md](openwrt/README.md) for the exact build steps and package list.
