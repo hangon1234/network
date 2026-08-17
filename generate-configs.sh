@@ -479,9 +479,9 @@ html_content = f"""<!DOCTYPE html>
   }}
 
   .admin-grid {{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }}
 
   .admin-grid .field-value {{
@@ -521,7 +521,6 @@ html_content = f"""<!DOCTYPE html>
     <div class="header">
       <div class="brand">
         <span>Router Access</span>
-        <span class="brand-badge">Xray</span>
       </div>
       <div class="sub">Wi-Fi &amp; Admin Info</div>
     </div>
