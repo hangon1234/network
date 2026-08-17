@@ -82,6 +82,7 @@ Outputs:
 - `openwrt/files/etc/xray/config.json` — Xray client config for the router
 - `openwrt/files/etc/uci-defaults/99-xray` — UCI defaults script (applied on first boot)
 - `openwrt/files/etc/shadow` — pre-hashed root password
+- `router-label.html` — printable Wi-Fi & LuCI access label with QR code for quick connect
 
 ### Multi-router workflow
 

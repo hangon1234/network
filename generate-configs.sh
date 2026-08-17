@@ -23,7 +23,7 @@ usage() {
   cat <<'EOF' >&2
 Usage:
   ./generate-configs.sh server <server-address-or-domain> [server-name]
-  ./generate-configs.sh router <wifi-ssid> <wifi-password> <luci-password>
+  ./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password]
 
 Subcommands:
   server    Generate new REALITY key pair + UUID, write server.json and client.json.
@@ -53,7 +53,7 @@ Subcommands:
               - openwrt/files/etc/xray/config.json
               - openwrt/files/etc/uci-defaults/99-xray
               - openwrt/files/etc/shadow
-              - router-label.html
+              - router-label.html (printable Wi-Fi label with QR code)
 EOF
 }
 
@@ -226,6 +226,350 @@ generate_random_hex() {
   exit 1
 }
 
+generate_router_label() {
+  local wifi_ssid="$1"
+  local wifi_password="$2"
+  local luci_password="$3"
+  local luci_address="${4:-192.168.1.1}"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "warning: python3 not found, skipping router label HTML generation" >&2
+    return
+  fi
+
+  python3 - "$wifi_ssid" "$wifi_password" "$luci_password" "$luci_address" "$ROUTER_LABEL_OUTPUT" <<'PY'
+import sys
+import base64
+import html
+from io import BytesIO
+
+wifi_ssid, wifi_password, luci_password, luci_address, output_path = sys.argv[1:]
+
+def escape_wifi_str(s):
+    # Escape special characters for standard WIFI: URI format: \ ; , " :
+    for ch in ('\\', ';', ',', ':', '"'):
+        s = s.replace(ch, '\\' + ch)
+    return s
+
+wifi_payload = f"WIFI:T:WPA;S:{escape_wifi_str(wifi_ssid)};P:{escape_wifi_str(wifi_password)};;"
+
+# Generate PNG QR code in memory
+qr_b64 = ""
+try:
+    from reportlab.graphics.barcode import qr
+    from reportlab.graphics import renderPM
+    from reportlab.graphics.shapes import Drawing
+
+    widget = qr.QrCodeWidget(wifi_payload)
+    bounds = widget.getBounds()
+    width = bounds[2] - bounds[0]
+    height = bounds[3] - bounds[1]
+    size = max(width, height)
+    drawing = Drawing(size, size, transform=[size / width, 0, 0, size / height, 0, 0])
+    drawing.add(widget)
+
+    buf = BytesIO()
+    renderPM.drawToFile(drawing, buf, fmt='PNG')
+    qr_b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+except Exception as e:
+    print(f"warning: failed to render QR code using reportlab: {e}", file=sys.stderr)
+
+safe_ssid = html.escape(wifi_ssid)
+safe_wifi_pw = html.escape(wifi_password)
+safe_luci_addr = html.escape(luci_address)
+safe_luci_pw = html.escape(luci_password)
+
+qr_img_tag = f'<img class="qr-img" src="data:image/png;base64,{qr_b64}" alt="Wi-Fi QR Code" />' if qr_b64 else '<div class="no-qr">QR code unavailable</div>'
+
+html_content = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Router Sticker Label - {safe_ssid}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Pretendard:wght@400;600;700&display=swap');
+
+  :root {{
+    --bg-page: #f1f3f5;
+    --card-bg: #ffffff;
+    --border-color: #222222;
+    --text-main: #111111;
+    --text-muted: #555555;
+    --accent: #0969da;
+  }}
+
+  * {{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }}
+
+  body {{
+    background-color: var(--bg-page);
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 15px;
+  }}
+
+  .actions {{
+    margin-bottom: 20px;
+    display: flex;
+    gap: 12px;
+  }}
+
+  .btn {{
+    background: #111827;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: background 0.2s;
+  }}
+
+  .btn:hover {{
+    background: #374151;
+  }}
+
+  /* Sticker Label Container */
+  .label-container {{
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }}
+
+  .sticker-card {{
+    background: var(--card-bg);
+    width: 340px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    position: relative;
+    page-break-inside: avoid;
+  }}
+
+  .header {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1.5px solid var(--border-color);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }}
+
+  .brand {{
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }}
+
+  .brand-badge {{
+    background: #111827;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }}
+
+  .sub {{
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }}
+
+  .content-grid {{
+    display: grid;
+    grid-template-columns: 1fr 100px;
+    gap: 12px;
+    align-items: center;
+  }}
+
+  .info-group {{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }}
+
+  .field {{
+    display: flex;
+    flex-direction: column;
+  }}
+
+  .field-label {{
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }}
+
+  .field-value {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #000;
+    background: #f8fafc;
+    padding: 3px 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    word-break: break-all;
+    user-select: all;
+  }}
+
+  .qr-box {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 6px;
+  }}
+
+  .qr-img {{
+    width: 90px;
+    height: 90px;
+    display: block;
+    image-rendering: pixelated;
+  }}
+
+  .qr-caption {{
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: center;
+  }}
+
+  .divider {{
+    height: 1px;
+    background: #e2e8f0;
+    margin: 12px 0;
+  }}
+
+  .admin-section {{
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 10px;
+  }}
+
+  .admin-title {{
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }}
+
+  .admin-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }}
+
+  .admin-grid .field-value {{
+    background: #ffffff;
+    font-size: 12px;
+  }}
+
+  /* Print specific adjustments */
+  @media print {{
+    body {{
+      background: none;
+      padding: 0;
+      display: block;
+    }}
+    .actions {{
+      display: none;
+    }}
+    .label-container {{
+      gap: 16px;
+    }}
+    .sticker-card {{
+      box-shadow: none;
+      border: 1.5px solid #000;
+      margin: 10px auto;
+    }}
+  }}
+</style>
+</head>
+<body>
+
+<div class="actions">
+  <button class="btn" onclick="window.print()">🖨️ 라벨 인쇄 (Print Sticker)</button>
+</div>
+
+<div class="label-container">
+  <div class="sticker-card">
+    <div class="header">
+      <div class="brand">
+        <span>Router Access</span>
+        <span class="brand-badge">Xray</span>
+      </div>
+      <div class="sub">Wi-Fi &amp; Admin Info</div>
+    </div>
+
+    <div class="content-grid">
+      <div class="info-group">
+        <div class="field">
+          <span class="field-label">Wi-Fi SSID</span>
+          <span class="field-value">{safe_ssid}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">Wi-Fi Password</span>
+          <span class="field-value">{safe_wifi_pw}</span>
+        </div>
+      </div>
+
+      <div class="qr-box">
+        {qr_img_tag}
+        <div class="qr-caption">Scan to Connect</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="admin-section">
+      <div class="admin-title">Admin Management (LuCI / SSH)</div>
+      <div class="admin-grid">
+        <div class="field">
+          <span class="field-label">LuCI URL (IP)</span>
+          <span class="field-value">http://{safe_luci_addr}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">Root Password</span>
+          <span class="field-value">{safe_luci_pw}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+"""
+
+with open(output_path, "w", encoding="utf-8") as f:
+    f.write(html_content)
+PY
+}
+
 render_template() {
   local template="$1"
   local output="$2"
@@ -391,7 +735,7 @@ Values:
   - UUID:    $uuid
   - shortId: $short_id
 
-Run './generate-configs.sh router <ssid> <wifi-pw> <luci-pw>' for each router to flash.
+Run './generate-configs.sh router [ssid] [wifi-pw] [luci-pw]' for each router to flash.
 EOF
 }
 
@@ -407,6 +751,7 @@ cmd_router() {
   local wifi_ssid="${1:-OpenWrt_$(generate_random_hex 5)}"
   local wifi_password="${2:-$(generate_random_hex 10)}"
   local luci_password="${3:-$(generate_random_hex 10)}"
+  local luci_address="192.168.1.1"
 
   # Read credentials from the already-generated server.json.
   local parsed uuid private_key short_id server_name
@@ -431,12 +776,14 @@ cmd_router() {
     "$server_address" "$server_name" "$uuid" "$private_key" "$public_key" "$short_id"
 
   generate_openwrt_defaults "$wifi_ssid" "$wifi_password" "$password_hash"
+  generate_router_label "$wifi_ssid" "$wifi_password" "$luci_password" "$luci_address"
 
   cat <<EOF
 Generated:
   - $ROUTER_OUTPUT
   - $OPENWRT_OUTPUT
   - $SHADOW_OUTPUT
+  - $ROUTER_LABEL_OUTPUT
 
 Values read from $SERVER_OUTPUT:
   - Server address: $server_address
@@ -447,7 +794,10 @@ Values read from $SERVER_OUTPUT:
 Router credentials:
   - SSID:           $wifi_ssid
   - Wi-Fi password: $wifi_password
+  - LuCI address:   http://$luci_address
   - LuCI password:  $luci_password
+
+Printable label generated: $ROUTER_LABEL_OUTPUT
 EOF
 }
 

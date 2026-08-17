@@ -5,3 +5,4 @@ openwrt/files/etc/shadow
 openwrt/files/etc/uci-defaults/99-xray
 onexray-share.png
 onexray-share.txt
+router-label.html
