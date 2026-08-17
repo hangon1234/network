@@ -10,6 +10,7 @@ LAN_IP='REPLACE_WITH_LAN_IP'
 set_lan_defaults() {
     if [ -n "$LAN_IP" ]; then
         uci -q set network.lan.ipaddr="$LAN_IP"
+        uci -q set network.lan.netmask="255.255.255.0"
         uci -q commit network
     fi
 }
