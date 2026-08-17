@@ -22,23 +22,38 @@ ROUTER_LABEL_OUTPUT="$ROOT_DIR/router-label.html"
 usage() {
   cat <<'EOF' >&2
 Usage:
-  ./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]
+  ./generate-configs.sh server <server-address-or-domain> [server-name]
+  ./generate-configs.sh router <wifi-ssid> <wifi-password> <luci-password>
 
-Arguments:
-  server-address-or-domain  Xray server address used by client/router configs.
-  wifi-ssid                 Wi-Fi SSID to set on the OpenWrt router.
-  wifi-password             Wi-Fi password to set on the OpenWrt router.
-  luci-password             LuCI/SSH root password for the OpenWrt router.
-  server-name               REALITY SNI / camouflage name. Defaults to speed.cloudflare.com.
+Subcommands:
+  server    Generate new REALITY key pair + UUID, write server.json and client.json.
+            Must be run once before any router commands.
 
-This generates:
-  - server.json
-  - client.json
-  - openwrt/files/etc/xray/config.json
-  - openwrt/files/etc/uci-defaults/99-xray
-  - openwrt/files/etc/shadow
-  - onexray-share.txt
-  - onexray-share.png
+            Arguments:
+              server-address-or-domain  Xray server address used by client/router configs.
+              server-name               REALITY SNI / camouflage name.
+                                        Defaults to speed.cloudflare.com.
+
+            Generates:
+              - server.json
+              - client.json
+              - onexray-share.txt
+              - onexray-share.png
+
+  router    Read credentials from existing server.json and generate router-specific
+            configs. Run this once per router with that router's own SSID / passwords.
+            server.json is never modified.
+
+            Arguments:
+              wifi-ssid      Wi-Fi SSID to set on the OpenWrt router.
+              wifi-password  Wi-Fi password to set on the OpenWrt router.
+              luci-password  LuCI/SSH root password for the OpenWrt router.
+
+            Generates:
+              - openwrt/files/etc/xray/config.json
+              - openwrt/files/etc/uci-defaults/99-xray
+              - openwrt/files/etc/shadow
+              - router-label.html
 EOF
 }
 
@@ -239,43 +254,199 @@ EOF
   chmod 600 "$SHADOW_OUTPUT"
 }
 
-if [ $# -lt 4 ] || [ $# -gt 5 ]; then
+# ---------------------------------------------------------------------------
+# Parse server.json to extract the values written by the 'server' subcommand.
+# ---------------------------------------------------------------------------
+read_server_json() {
+  if [ ! -f "$SERVER_OUTPUT" ]; then
+    echo "error: $SERVER_OUTPUT not found. Run './generate-configs.sh server ...' first." >&2
+    exit 1
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "error: python3 is required to parse server.json" >&2
+    exit 1
+  fi
+
+  python3 - "$SERVER_OUTPUT" <<'PY'
+import json, sys
+
+with open(sys.argv[1]) as f:
+    cfg = json.load(f)
+
+inbound = cfg["inbounds"][0]
+reality  = inbound["streamSettings"]["realitySettings"]
+
+uuid        = inbound["settings"]["clients"][0]["id"]
+private_key = reality["privateKey"]
+short_ids   = [s for s in reality["shortIds"] if s]
+short_id    = short_ids[0] if short_ids else ""
+server_name = reality["serverNames"][0]
+
+print(uuid)
+print(private_key)
+print(short_id)
+print(server_name)
+PY
+}
+
+# ---------------------------------------------------------------------------
+# Read the server address from client.json (server.json has no address field).
+# ---------------------------------------------------------------------------
+read_server_address() {
+  if [ ! -f "$CLIENT_OUTPUT" ]; then
+    echo "error: $CLIENT_OUTPUT not found. Run './generate-configs.sh server ...' first." >&2
+    exit 1
+  fi
+
+  python3 - "$CLIENT_OUTPUT" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    cfg = json.load(f)
+print(cfg["outbounds"][0]["settings"]["address"])
+PY
+}
+
+# ---------------------------------------------------------------------------
+# Derive the public key from an existing private key via xray x25519.
+# ---------------------------------------------------------------------------
+derive_public_key() {
+  local private_key="$1"
+
+  if ! command -v xray >/dev/null 2>&1; then
+    echo "error: xray is required to derive the public key from the private key" >&2
+    exit 1
+  fi
+
+  local output public_key
+  output="$(xray x25519 -i "$private_key" 2>&1)"
+  public_key="$(printf '%s\n' "$output" | awk -F': ' '
+    /^Public key:/ {print $2; exit}
+    /^Password \(PublicKey\):/ {print $2; exit}
+  ')"
+
+  if [ -z "$public_key" ]; then
+    echo "error: failed to derive public key from private key" >&2
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$public_key"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: server
+# ---------------------------------------------------------------------------
+cmd_server() {
+  if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: ./generate-configs.sh server <server-address-or-domain> [server-name]" >&2
+    exit 1
+  fi
+
+  local server_address="$1"
+  local server_name="${2:-speed.cloudflare.com}"
+
+  local uuid short_id keys private_key public_key
+  uuid="$(generate_uuid)"
+  short_id="$(generate_short_id)"
+  keys="$(generate_reality_keys)"
+  private_key="$(printf '%s\n' "$keys" | sed -n '1p')"
+  public_key="$(printf '%s\n' "$keys" | sed -n '2p')"
+
+  render_template "$SERVER_TEMPLATE" "$SERVER_OUTPUT" \
+    "$server_address" "$server_name" "$uuid" "$private_key" "$public_key" "$short_id"
+
+  render_template "$CLIENT_TEMPLATE" "$CLIENT_OUTPUT" \
+    "$server_address" "$server_name" "$uuid" "$private_key" "$public_key" "$short_id"
+
+  generate_onexray_share "$server_address" "$server_name" "$uuid" "$public_key" "$short_id"
+
+  cat <<EOF
+Generated:
+  - $SERVER_OUTPUT
+  - $CLIENT_OUTPUT
+  - $ONEXRAY_SHARE_OUTPUT
+  - $ONEXRAY_QR_OUTPUT
+
+Values:
+  - UUID:    $uuid
+  - shortId: $short_id
+
+Run './generate-configs.sh router <ssid> <wifi-pw> <luci-pw>' for each router to flash.
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: router
+# ---------------------------------------------------------------------------
+cmd_router() {
+  if [ $# -ne 3 ]; then
+    echo "Usage: ./generate-configs.sh router <wifi-ssid> <wifi-password> <luci-password>" >&2
+    exit 1
+  fi
+
+  local wifi_ssid="$1"
+  local wifi_password="$2"
+  local luci_password="$3"
+
+  # Read credentials from the already-generated server.json.
+  local parsed uuid private_key short_id server_name
+  parsed="$(read_server_json)"
+  uuid="$(        printf '%s\n' "$parsed" | sed -n '1p')"
+  private_key="$( printf '%s\n' "$parsed" | sed -n '2p')"
+  short_id="$(    printf '%s\n' "$parsed" | sed -n '3p')"
+  server_name="$( printf '%s\n' "$parsed" | sed -n '4p')"
+
+  # server.json has no address field; read it from client.json.
+  local server_address
+  server_address="$(read_server_address)"
+
+  # Derive the public key from the stored private key.
+  local public_key
+  public_key="$(derive_public_key "$private_key")"
+
+  local password_hash
+  password_hash="$(generate_password_hash "$luci_password")"
+
+  render_template "$ROUTER_TEMPLATE" "$ROUTER_OUTPUT" \
+    "$server_address" "$server_name" "$uuid" "$private_key" "$public_key" "$short_id"
+
+  generate_openwrt_defaults "$wifi_ssid" "$wifi_password" "$password_hash"
+
+  cat <<EOF
+Generated:
+  - $ROUTER_OUTPUT
+  - $OPENWRT_OUTPUT
+  - $SHADOW_OUTPUT
+
+Values read from $SERVER_OUTPUT:
+  - Server address: $server_address
+  - Server name:    $server_name
+  - UUID:           $uuid
+  - shortId:        $short_id
+
+Router SSID: $wifi_ssid
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+if [ $# -lt 1 ]; then
   usage
   exit 1
 fi
 
-SERVER_ADDRESS="$1"
-WIFI_SSID="$2"
-WIFI_PASSWORD="$3"
-LUCI_PASSWORD="$4"
-SERVER_NAME="${5:-speed.cloudflare.com}"
+SUBCOMMAND="$1"
+shift
 
-UUID="$(generate_uuid)"
-SHORT_ID="$(generate_short_id)"
-KEYS="$(generate_reality_keys)"
-PRIVATE_KEY="$(printf '%s\n' "$KEYS" | sed -n '1p')"
-PUBLIC_KEY="$(printf '%s\n' "$KEYS" | sed -n '2p')"
-PASSWORD_HASH="$(generate_password_hash "$LUCI_PASSWORD")"
-
-render_template "$SERVER_TEMPLATE" "$SERVER_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
-render_template "$CLIENT_TEMPLATE" "$CLIENT_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
-render_template "$ROUTER_TEMPLATE" "$ROUTER_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
-generate_openwrt_defaults "$WIFI_SSID" "$WIFI_PASSWORD" "$PASSWORD_HASH"
-generate_onexray_share "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PUBLIC_KEY" "$SHORT_ID"
-generate_router_label "$WIFI_SSID" "$WIFI_PASSWORD" "$LUCI_PASSWORD"
-
-cat <<EOF
-Generated:
-  - $SERVER_OUTPUT
-  - $CLIENT_OUTPUT
-  - $ROUTER_OUTPUT
-  - $OPENWRT_OUTPUT
-  - $SHADOW_OUTPUT
-  - $ONEXRAY_SHARE_OUTPUT
-  - $ONEXRAY_QR_OUTPUT
-  - $ROUTER_LABEL_OUTPUT
-
-Values:
-  - UUID: $UUID
-  - shortId: $SHORT_ID
-EOF
+case "$SUBCOMMAND" in
+  server) cmd_server "$@" ;;
+  router) cmd_router "$@" ;;
+  -h|--help|help) usage; exit 0 ;;
+  *)
+    echo "error: unknown subcommand '$SUBCOMMAND'" >&2
+    usage
+    exit 1
+    ;;
+esac
