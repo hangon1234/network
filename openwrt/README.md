@@ -41,5 +41,5 @@ Notes:
 - If your WAN interface is unusual, you may need to change the outbound interface choice from `"auto"` to an explicit interface later.
 - The Wi-Fi defaults script uses `sae-mixed`, which is WPA2/WPA3 mixed mode.
 - `luci-ssl` gives you the LuCI web UI over HTTPS, and the overlayed `dropbear` config keeps SSH enabled on LAN port 22.
-- Use `./generate-openwrt.sh <wifi-ssid> <wifi-password> <luci-password>` from the repo root before building if you want the image to boot with your Wi-Fi name, Wi-Fi password, and LuCI root password already set.
+- Use `./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]` from the repo root before building to generate all configs including the Wi-Fi name, Wi-Fi password, and LuCI root password already set.
 - Stock OpenWrt uses `root` as the LuCI username. This repo sets the password automatically; changing the username is a different auth customization.

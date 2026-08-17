@@ -9,7 +9,7 @@ This repo keeps example templates in:
 Generate the real config files with:
 
 ```sh
-./generate-configs.sh <server-address-or-domain> [server-name]
+./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]
 ```
 
 Run it on a machine that has `xray` in `PATH`, because the script uses `xray x25519` to create the REALITY keypair.
@@ -62,13 +62,13 @@ The script fills in:
 - a OneXray-compatible `vless://` share link
 - a QR code image for importing into OneXray
 
-For OpenWrt Wi-Fi and LuCI defaults, run:
+For OpenWrt Wi-Fi and LuCI defaults, these are now generated as part of the main script:
 
 ```sh
-./generate-openwrt.sh <wifi-ssid> <wifi-password> <luci-password>
+./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]
 ```
 
-That generates `openwrt/files/etc/uci-defaults/99-xray`, which applies the Wi-Fi name/password and sets the LuCI root password on first boot.
+That generates `openwrt/files/etc/uci-defaults/99-xray` and `openwrt/files/etc/shadow`, which apply the Wi-Fi name/password and set the LuCI root password on first boot.
 
 ## Build OpenWrt image
 

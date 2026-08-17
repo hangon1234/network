@@ -8,26 +8,35 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_TEMPLATE="$ROOT_DIR/server.example.json"
 CLIENT_TEMPLATE="$ROOT_DIR/client.example.json"
 ROUTER_TEMPLATE="$ROOT_DIR/openwrt/templates/config.example.json"
+OPENWRT_TEMPLATE="$ROOT_DIR/openwrt/templates/99-xray.example"
 
 SERVER_OUTPUT="$ROOT_DIR/server.json"
 CLIENT_OUTPUT="$ROOT_DIR/client.json"
 ROUTER_OUTPUT="$ROOT_DIR/openwrt/files/etc/xray/config.json"
+OPENWRT_OUTPUT="$ROOT_DIR/openwrt/files/etc/uci-defaults/99-xray"
+SHADOW_OUTPUT="$ROOT_DIR/openwrt/files/etc/shadow"
 ONEXRAY_SHARE_OUTPUT="$ROOT_DIR/onexray-share.txt"
 ONEXRAY_QR_OUTPUT="$ROOT_DIR/onexray-share.png"
+ROUTER_LABEL_OUTPUT="$ROOT_DIR/router-label.html"
 
 usage() {
   cat <<'EOF' >&2
 Usage:
-  ./generate-configs.sh <server-address-or-domain> [server-name]
+  ./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]
 
 Arguments:
   server-address-or-domain  Xray server address used by client/router configs.
+  wifi-ssid                 Wi-Fi SSID to set on the OpenWrt router.
+  wifi-password             Wi-Fi password to set on the OpenWrt router.
+  luci-password             LuCI/SSH root password for the OpenWrt router.
   server-name               REALITY SNI / camouflage name. Defaults to speed.cloudflare.com.
 
 This generates:
   - server.json
   - client.json
   - openwrt/files/etc/xray/config.json
+  - openwrt/files/etc/uci-defaults/99-xray
+  - openwrt/files/etc/shadow
   - onexray-share.txt
   - onexray-share.png
 EOF
@@ -92,6 +101,22 @@ generate_reality_keys() {
   fi
 
   printf '%s\n%s\n' "$private_key" "$public_key"
+}
+
+generate_password_hash() {
+  local password="$1"
+
+  if command -v openssl >/dev/null 2>&1; then
+    openssl passwd -6 "$password" 2>/dev/null || openssl passwd -1 "$password"
+    return
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "import crypt; print(crypt.crypt('$password', crypt.mksalt(crypt.METHOD_SHA512)))" 2>/dev/null && return
+  fi
+
+  echo "error: openssl or python3 is required to generate password hash" >&2
+  exit 1
 }
 
 generate_onexray_share() {
@@ -187,31 +212,68 @@ render_template() {
     "$template" > "$output"
 }
 
-if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+generate_openwrt_defaults() {
+  local wifi_ssid="$1"
+  local wifi_password="$2"
+  local password_hash="$3"
+
+  sed \
+    -e "s|REPLACE_WITH_WIFI_SSID|$(escape_sed_replacement "$wifi_ssid")|g" \
+    -e "s|REPLACE_WITH_WIFI_PASSWORD|$(escape_sed_replacement "$wifi_password")|g" \
+    -e "s|REPLACE_WITH_ROOT_PASSWORD_HASH|$(escape_sed_replacement "$password_hash")|g" \
+    "$OPENWRT_TEMPLATE" > "$OPENWRT_OUTPUT"
+
+  chmod 755 "$OPENWRT_OUTPUT"
+
+  mkdir -p "$(dirname "$SHADOW_OUTPUT")"
+  cat > "$SHADOW_OUTPUT" <<EOF
+root:${password_hash}:0:0:99999:7:::
+daemon:*:0:0:99999:7:::
+network:*:0:0:99999:7:::
+nobody:*:0:0:99999:7:::
+ntp:x:0:0:99999:7:::
+dnsmasq:x:0:0:99999:7:::
+logd:x:0:0:99999:7:::
+ubus:x:0:0:99999:7:::
+EOF
+  chmod 600 "$SHADOW_OUTPUT"
+}
+
+if [ $# -lt 4 ] || [ $# -gt 5 ]; then
   usage
   exit 1
 fi
 
 SERVER_ADDRESS="$1"
-SERVER_NAME="${2:-speed.cloudflare.com}"
+WIFI_SSID="$2"
+WIFI_PASSWORD="$3"
+LUCI_PASSWORD="$4"
+SERVER_NAME="${5:-speed.cloudflare.com}"
+
 UUID="$(generate_uuid)"
 SHORT_ID="$(generate_short_id)"
 KEYS="$(generate_reality_keys)"
 PRIVATE_KEY="$(printf '%s\n' "$KEYS" | sed -n '1p')"
 PUBLIC_KEY="$(printf '%s\n' "$KEYS" | sed -n '2p')"
+PASSWORD_HASH="$(generate_password_hash "$LUCI_PASSWORD")"
 
 render_template "$SERVER_TEMPLATE" "$SERVER_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
 render_template "$CLIENT_TEMPLATE" "$CLIENT_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
 render_template "$ROUTER_TEMPLATE" "$ROUTER_OUTPUT" "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PRIVATE_KEY" "$PUBLIC_KEY" "$SHORT_ID"
+generate_openwrt_defaults "$WIFI_SSID" "$WIFI_PASSWORD" "$PASSWORD_HASH"
 generate_onexray_share "$SERVER_ADDRESS" "$SERVER_NAME" "$UUID" "$PUBLIC_KEY" "$SHORT_ID"
+generate_router_label "$WIFI_SSID" "$WIFI_PASSWORD" "$LUCI_PASSWORD"
 
 cat <<EOF
 Generated:
   - $SERVER_OUTPUT
   - $CLIENT_OUTPUT
   - $ROUTER_OUTPUT
+  - $OPENWRT_OUTPUT
+  - $SHADOW_OUTPUT
   - $ONEXRAY_SHARE_OUTPUT
   - $ONEXRAY_QR_OUTPUT
+  - $ROUTER_LABEL_OUTPUT
 
 Values:
   - UUID: $UUID
