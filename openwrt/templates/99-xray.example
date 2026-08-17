@@ -5,6 +5,14 @@ set -e
 WIFI_SSID='REPLACE_WITH_WIFI_SSID'
 WIFI_PASSWORD='REPLACE_WITH_WIFI_PASSWORD'
 ROOT_PASSWORD_HASH='REPLACE_WITH_ROOT_PASSWORD_HASH'
+LAN_IP='REPLACE_WITH_LAN_IP'
+
+set_lan_defaults() {
+    if [ -n "$LAN_IP" ]; then
+        uci -q set network.lan.ipaddr="$LAN_IP"
+        uci -q commit network
+    fi
+}
 
 set_xray_routing() {
     # Create a named network interface for the Xray TUN device
@@ -103,6 +111,7 @@ set_system_defaults() {
 
 set_wireless_defaults
 set_root_password
+set_lan_defaults
 set_xray_routing
 set_xray_firewall
 set_dhcp_defaults

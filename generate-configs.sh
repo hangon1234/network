@@ -23,7 +23,7 @@ usage() {
   cat <<'EOF' >&2
 Usage:
   ./generate-configs.sh server <server-address-or-domain> [server-name]
-  ./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password]
+  ./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password] [luci-address]
 
 Subcommands:
   server    Generate new REALITY key pair + UUID, write server.json and client.json.
@@ -44,10 +44,11 @@ Subcommands:
             configs. Run this once per router with that router's own SSID / passwords.
             server.json is never modified.
 
-            Arguments (all optional — random values are generated if omitted):
-              wifi-ssid      Wi-Fi SSID.      Default: OpenWrt_<5 random hex chars>
-              wifi-password  Wi-Fi password.  Default: 10 random hex chars
+            Arguments (all optional — random/default values are used if omitted):
+              wifi-ssid      Wi-Fi SSID.             Default: OpenWrt_<5 random hex chars>
+              wifi-password  Wi-Fi password.         Default: 10 random hex chars
               luci-password  LuCI/SSH root password. Default: 10 random hex chars
+              luci-address   Router LAN/LuCI IP.     Default: 192.168.1.1
 
             Generates:
               - openwrt/files/etc/xray/config.json
@@ -594,11 +595,13 @@ generate_openwrt_defaults() {
   local wifi_ssid="$1"
   local wifi_password="$2"
   local password_hash="$3"
+  local lan_ip="${4:-192.168.1.1}"
 
   sed \
     -e "s|REPLACE_WITH_WIFI_SSID|$(escape_sed_replacement "$wifi_ssid")|g" \
     -e "s|REPLACE_WITH_WIFI_PASSWORD|$(escape_sed_replacement "$wifi_password")|g" \
     -e "s|REPLACE_WITH_ROOT_PASSWORD_HASH|$(escape_sed_replacement "$password_hash")|g" \
+    -e "s|REPLACE_WITH_LAN_IP|$(escape_sed_replacement "$lan_ip")|g" \
     "$OPENWRT_TEMPLATE" > "$OPENWRT_OUTPUT"
 
   chmod 755 "$OPENWRT_OUTPUT"
@@ -743,15 +746,15 @@ EOF
 # Subcommand: router
 # ---------------------------------------------------------------------------
 cmd_router() {
-  if [ $# -gt 3 ]; then
-    echo "Usage: ./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password]" >&2
+  if [ $# -gt 4 ]; then
+    echo "Usage: ./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password] [luci-address]" >&2
     exit 1
   fi
 
   local wifi_ssid="${1:-OpenWrt_$(generate_random_hex 5)}"
   local wifi_password="${2:-$(generate_random_hex 10)}"
   local luci_password="${3:-$(generate_random_hex 10)}"
-  local luci_address="192.168.1.1"
+  local luci_address="${4:-192.168.1.1}"
 
   # Read credentials from the already-generated server.json.
   local parsed uuid private_key short_id server_name
@@ -775,7 +778,7 @@ cmd_router() {
   render_template "$ROUTER_TEMPLATE" "$ROUTER_OUTPUT" \
     "$server_address" "$server_name" "$uuid" "$private_key" "$public_key" "$short_id"
 
-  generate_openwrt_defaults "$wifi_ssid" "$wifi_password" "$password_hash"
+  generate_openwrt_defaults "$wifi_ssid" "$wifi_password" "$password_hash" "$luci_address"
   generate_router_label "$wifi_ssid" "$wifi_password" "$luci_password" "$luci_address"
 
   cat <<EOF

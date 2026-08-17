@@ -62,16 +62,17 @@ This generates a fresh UUID, REALITY key pair, and shortId, then writes:
 ## Step 2 — Generate router config (run once per router)
 
 ```sh
-./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password]
+./generate-configs.sh router [wifi-ssid] [wifi-password] [luci-password] [luci-address]
 ```
 
-All arguments are **optional**. If omitted, random values are generated automatically:
+All arguments are **optional**. If omitted, random/default values are generated automatically:
 
 | Argument | Default |
 |---|---|
 | `wifi-ssid` | `OpenWrt_<5 random hex chars>` e.g. `OpenWrt_a3f2c` |
 | `wifi-password` | 10 random hex chars |
 | `luci-password` | 10 random hex chars |
+| `luci-address` | `192.168.1.1` (applied to OpenWrt LAN IP & label) |
 
 The script reads all Xray credentials (UUID, keys, shortId, server address)
 from the existing `server.json` and `client.json` — **no new keys are generated**
