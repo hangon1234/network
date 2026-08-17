@@ -7,28 +7,35 @@ WIFI_PASSWORD='REPLACE_WITH_WIFI_PASSWORD'
 ROOT_PASSWORD_HASH='REPLACE_WITH_ROOT_PASSWORD_HASH'
 
 set_xray_routing() {
-    # Set WAN metrics to 10 so that xray default route (metric 1) takes precedence
-    uci -q set network.wan.metric='10' || true
-    uci -q set network.wan6.metric='10' || true
-
-    # Create a named network interface for the Xray TUN device and point the
-    # default IPv4/IPv6 routes at it. Xray still uses autoOutboundsInterface to
-    # keep its own upstream connection on the WAN side.
+    # Create a named network interface for the Xray TUN device
     uci -q delete network.xray || true
     uci -q set network.xray='interface'
     uci -q set network.xray.proto='none'
     uci -q set network.xray.device='xray0'
 
+    # Route table 100 via xray0 for transparent proxy
     uci -q add network route
     uci -q set network.@route[-1].interface='xray'
     uci -q set network.@route[-1].target='0.0.0.0'
     uci -q set network.@route[-1].netmask='0.0.0.0'
-    uci -q set network.@route[-1].metric='1'
+    uci -q set network.@route[-1].table='100'
 
     uci -q add network route6
     uci -q set network.@route6[-1].interface='xray'
     uci -q set network.@route6[-1].target='::/0'
-    uci -q set network.@route6[-1].metric='1'
+    uci -q set network.@route6[-1].table='100'
+
+    # Policy routing: forward client traffic from LAN/Wi-Fi to table 100 (xray0)
+    # Router's local traffic stays on main table (WAN) preventing routing loops
+    uci -q add network rule
+    uci -q set network.@rule[-1].in='lan'
+    uci -q set network.@rule[-1].lookup='100'
+    uci -q set network.@rule[-1].priority='1000'
+
+    uci -q add network rule6
+    uci -q set network.@rule6[-1].in='lan'
+    uci -q set network.@rule6[-1].lookup='100'
+    uci -q set network.@rule6[-1].priority='1000'
 
     uci -q commit network
 }
@@ -73,10 +80,33 @@ set_root_password() {
     fi
 }
 
+set_dhcp_defaults() {
+    # Distribute Cloudflare/Google DNS to LAN/Wi-Fi clients (queries go through xray0 tunnel)
+    # Router itself keeps using WAN ISP DNS for initial domain resolution (e.g. duckdns.org)
+    uci -q delete dhcp.lan.dhcp_option || true
+    uci -q add_list dhcp.lan.dhcp_option='6,1.1.1.1,8.8.8.8'
+    uci -q commit dhcp
+}
+
+set_system_defaults() {
+    # Configure reliable NTP servers (including Alibaba NTP for fast sync in China)
+    uci -q delete system.ntp.server || true
+    uci -q add_list system.ntp.server='ntp.aliyun.com'
+    uci -q add_list system.ntp.server='time.cloudflare.com'
+    uci -q add_list system.ntp.server='time.google.com'
+    uci -q add_list system.ntp.server='pool.ntp.org'
+    uci -q commit system
+
+    /etc/init.d/sysntpd restart || true
+    ntpd -q -n -p ntp.aliyun.com -p time.cloudflare.com -p pool.ntp.org >/dev/null 2>&1 || true
+}
+
 set_wireless_defaults
 set_root_password
 set_xray_routing
 set_xray_firewall
+set_dhcp_defaults
+set_system_defaults
 
 if [ -f /etc/config/xray ]; then
     uci -q set xray.enabled.enabled='1' || true
