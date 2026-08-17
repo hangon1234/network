@@ -118,13 +118,13 @@ set_xray_firewall
 set_dhcp_defaults
 set_system_defaults
 
-if [ -f /etc/config/xray ]; then
-    uci -q set xray.enabled.enabled='1' || true
-    uci -q commit xray || true
+if [ -f /etc/init.d/xray ]; then
+    # Inject GOMAXPROCS=1 and nice priority into /etc/init.d/xray procd service
+    sed -i 's|procd_set_param command "$PROG" run|procd_set_param env GOMAXPROCS=1\n\tprocd_set_param nice 19\n\tprocd_set_param command "$PROG" run|g' /etc/init.d/xray 2>/dev/null || true
+    /etc/init.d/xray enable || true
+    /etc/init.d/xray restart || true
 fi
 
-/etc/init.d/xray enable
-/etc/init.d/xray start
 wifi reload >/dev/null 2>&1 || wifi >/dev/null 2>&1 || true
 
 exit 0
