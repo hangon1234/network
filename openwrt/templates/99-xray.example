@@ -119,8 +119,12 @@ set_dhcp_defaults
 set_system_defaults
 
 if [ -f /etc/init.d/xray ]; then
-    # Inject GOMAXPROCS=1 and nice priority into /etc/init.d/xray procd service
-    sed -i 's|procd_set_param command "$PROG" run|procd_set_param env GOMAXPROCS=1\n\tprocd_set_param nice 19\n\tprocd_set_param command "$PROG" run|g' /etc/init.d/xray 2>/dev/null || true
+    # Inject procd params into /etc/init.d/xray:
+    #   - stdout/stderr: route Xray logs to logd (logread), avoids /tmp file growth
+    #   - GOMEMLIMIT=70MiB: force Go GC when heap exceeds 70MB, prevents OOM on 256MB RAM
+    #   - GOGC=20: trigger GC aggressively (every 20% heap growth) to keep memory low
+    #   - GOMAXPROCS=1: limit Go to 1 OS thread, reduces CPU/scheduler overhead on embedded SoC
+    sed -i 's|procd_set_param command /usr/bin/xray run|procd_set_param env GOMEMLIMIT=70MiB GOGC=20 GOMAXPROCS=1\n\tprocd_set_param stdout 1\n\tprocd_set_param stderr 1\n\tprocd_set_param nice 19\n\tprocd_set_param command /usr/bin/xray run|g' /etc/init.d/xray 2>/dev/null || true
     /etc/init.d/xray enable || true
     /etc/init.d/xray restart || true
 fi

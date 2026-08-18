@@ -1,6 +1,7 @@
 {
   "log": {
-    "loglevel": "warning"
+    "access": "/dev/stdout",
+    "loglevel": "info"
   },
   "inbounds": [
     {
