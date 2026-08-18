@@ -75,9 +75,9 @@ set_wireless_defaults() {
     for iface in $ifaces; do
         uci -q set "${iface}.disabled=0"
         uci -q set "${iface}.ssid=${WIFI_SSID}"
-        uci -q set "${iface}.encryption=sae-mixed"
+        uci -q set "${iface}.encryption=psk2"
         uci -q set "${iface}.key=${WIFI_PASSWORD}"
-        uci -q set "${iface}.ieee80211w=1"
+        uci -q set "${iface}.ieee80211w=0"
     done
 
     uci -q commit wireless

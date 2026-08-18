@@ -19,18 +19,16 @@ Recommended packages:
 - `curl`
 - `luci-ssl`
 - `dropbear`
-- `wpad-openssl` (or full `wpad`) for WPA2/WPA3 (SAE) mixed mode support
+- `wpad-basic-mbedtls` (or `wpad-openssl` / `wpad`)
 
 Build example:
 
 ```sh
 make image \
   PROFILE="iptime_ax3000se" \
-  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle curl luci-ssl dropbear -wpad-basic-mbedtls -wpad-mini wpad-openssl" \
+  PACKAGES="xray-core v2ray-geoip v2ray-geosite kmod-tun ca-bundle curl luci-ssl dropbear" \
   FILES="files"
 ```
-
-If your Image Builder profile pulls in a different `wpad-*` default, remove that one before adding `wpad-openssl` (or `wpad`). Note that `wpad-mini` and `wpad-basic-mbedtls` do not support WPA3 SAE and will cause hostapd to fail to start in `sae-mixed` mode.
 
 If the device is already running OpenWrt, use the generated `*-sysupgrade.bin` in LuCI's firmware upgrade page. If you are installing OpenWrt for the first time from vendor firmware, use the factory image instead.
 
@@ -39,7 +37,7 @@ Notes:
 - The router config here uses `TUN` plus `autoSystemRoutingTable` and `autoOutboundsInterface`, and the first-boot UCI script adds an `xray0` network interface plus default routes through it.
 - That `TUN` inbound is what captures traffic from the router itself and from LAN/Wi-Fi clients whose default gateway is this router once routing is in place.
 - If your WAN interface is unusual, you may need to change the outbound interface choice from `"auto"` to an explicit interface later.
-- The Wi-Fi defaults script uses `sae-mixed`, which is WPA2/WPA3 mixed mode.
+- The Wi-Fi defaults script uses `psk2` (WPA2-PSK) with `ieee80211w=0` for maximum device compatibility and stability.
 - `luci-ssl` gives you the LuCI web UI over HTTPS, and the overlayed `dropbear` config keeps SSH enabled on LAN port 22.
-- Use `./generate-configs.sh <server-address-or-domain> <wifi-ssid> <wifi-password> <luci-password> [server-name]` from the repo root before building to generate all configs including the Wi-Fi name, Wi-Fi password, and LuCI root password already set.
+- Use `./generate-configs.sh router <wifi-ssid> <wifi-password> <luci-password>` from the repo root before building to generate all configs including the Wi-Fi name, Wi-Fi password, and LuCI root password already set.
 - Stock OpenWrt uses `root` as the LuCI username. This repo sets the password automatically; changing the username is a different auth customization.

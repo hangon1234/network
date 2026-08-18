@@ -348,7 +348,7 @@ html_content = f"""<!DOCTYPE html>
 
   .sticker-card {{
     background: var(--card-bg);
-    width: 340px;
+    width: 260px;
     border: 2px solid var(--border-color);
     border-radius: 12px;
     padding: 16px;
@@ -391,13 +391,6 @@ html_content = f"""<!DOCTYPE html>
     font-weight: 500;
   }}
 
-  .content-grid {{
-    display: grid;
-    grid-template-columns: 1fr 100px;
-    gap: 12px;
-    align-items: center;
-  }}
-
   .info-group {{
     display: flex;
     flex-direction: column;
@@ -424,7 +417,7 @@ html_content = f"""<!DOCTYPE html>
     font-weight: 700;
     color: #000;
     background: #f8fafc;
-    padding: 3px 6px;
+    padding: 4px 8px;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     word-break: break-all;
@@ -439,28 +432,29 @@ html_content = f"""<!DOCTYPE html>
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 6px;
+    padding: 10px;
+    margin-top: 12px;
   }}
 
   .qr-img {{
-    width: 90px;
-    height: 90px;
+    width: 120px;
+    height: 120px;
     display: block;
     image-rendering: pixelated;
   }}
 
   .qr-caption {{
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: 6px;
     text-align: center;
   }}
 
   .divider {{
     height: 1px;
     background: #e2e8f0;
-    margin: 12px 0;
+    margin: 14px 0;
   }}
 
   .admin-section {{
@@ -525,22 +519,20 @@ html_content = f"""<!DOCTYPE html>
       <div class="sub">Wi-Fi &amp; Admin Info</div>
     </div>
 
-    <div class="content-grid">
-      <div class="info-group">
-        <div class="field">
-          <span class="field-label">Wi-Fi SSID</span>
-          <span class="field-value">{safe_ssid}</span>
-        </div>
-        <div class="field">
-          <span class="field-label">Wi-Fi Password</span>
-          <span class="field-value">{safe_wifi_pw}</span>
-        </div>
+    <div class="info-group">
+      <div class="field">
+        <span class="field-label">Wi-Fi SSID</span>
+        <span class="field-value">{safe_ssid}</span>
       </div>
+      <div class="field">
+        <span class="field-label">Wi-Fi Password</span>
+        <span class="field-value">{safe_wifi_pw}</span>
+      </div>
+    </div>
 
-      <div class="qr-box">
-        {qr_img_tag}
-        <div class="qr-caption">Scan to Connect</div>
-      </div>
+    <div class="qr-box">
+      {qr_img_tag}
+      <div class="qr-caption">Scan to Connect</div>
     </div>
 
     <div class="divider"></div>
